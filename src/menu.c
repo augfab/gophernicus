@@ -35,16 +35,16 @@
  */
 static int foldersort(const void *a, const void *b)
 {
-	mode_t amode;
-	mode_t bmode;
+	const sdirent *dirent_a = a;
+	const sdirent *dirent_b = b;
 
-	amode = (*(sdirent *) a).mode & S_IFMT;
-	bmode = (*(sdirent *) b).mode & S_IFMT;
+	if (S_ISDIR(dirent_a->mode) && !S_ISDIR(dirent_b->mode))
+		return -1;
 
-	if (amode == S_IFDIR && bmode != S_IFDIR) return -1;
-	if (amode != S_IFDIR && bmode == S_IFDIR) return 1;
+	if (!S_ISDIR(dirent_a->mode) && S_ISDIR(dirent_b->mode))
+		return 1;
 
-	return strcmp((*(sdirent *) a).name, (*(sdirent *) b).name);
+	return strcmp(dirent_a->name, dirent_b->name);
 }
 
 
@@ -202,7 +202,7 @@ static void vhostlist(state *st)
 
 		/* We only want world-readable directories */
 		if ((dir[i].mode & S_IROTH) == 0) continue;
-		if ((dir[i].mode & S_IFMT) != S_IFDIR) continue;
+		if (S_ISDIR(dir[i].mode)) continue;
 
 		/* Generate display string for vhost */
 		snprintf(buf, sizeof(buf), VHOST_FORMAT, dir[i].name);
@@ -503,8 +503,7 @@ void gopher_menu(state *st)
 	snprintf(pathname, sizeof(pathname), "%s/%s",
 		st->req_realpath, st->map_file);
 
-	if (stat(pathname, &file) == OK &&
-		(file.st_mode & S_IFMT) == S_IFREG) {
+	if (stat(pathname, &file) == OK && S_ISREG(file.st_mode)) {
 
 		/* Parse gophermap */
 		if (gophermap(st, pathname, 0) == QUIT) {
@@ -518,8 +517,7 @@ void gopher_menu(state *st)
 		snprintf(pathname, sizeof(pathname), "%s/%s",
 			st->req_realpath, st->tag_file);
 
-		if (stat(pathname, &file) == OK &&
-			(file.st_mode & S_IFMT) == S_IFREG) {
+		if (stat(pathname, &file) == OK && S_ISREG(file.st_mode)) {
 
 			/* Read & output gophertag */
 			if ((fp = fopen(pathname , "r"))) {
@@ -591,7 +589,7 @@ void gopher_menu(state *st)
 		if ((dir[i].mode & S_IROTH) == 0) continue;
 
 		/* Skip gophermaps and tags (but not dirs) */
-		if ((dir[i].mode & S_IFMT) != S_IFDIR) {
+		if (!S_ISDIR(dir[i].mode)) {
 			if (strcmp(dir[i].name, st->map_file) == MATCH) continue;
 			if (strcmp(dir[i].name, st->tag_file) == MATCH) continue;
 		}
@@ -617,14 +615,13 @@ void gopher_menu(state *st)
 		}
 
 		/* Handle directories */
-		if ((dir[i].mode & S_IFMT) == S_IFDIR) {
+		if (S_ISDIR(dir[i].mode)) {
 
 			/* Check for a gophertag */
 			snprintf(buf, sizeof(buf), "%s/%s",
 				pathname, st->tag_file);
 
-			if (stat(buf, &file) == OK &&
-				(file.st_mode & S_IFMT) == S_IFREG) {
+			if (stat(buf, &file) == OK && S_ISREG(file.st_mode)) {
 
 				/* Use the gophertag as displayname */
 				if ((fp = fopen(buf , "r"))) {
@@ -678,7 +675,7 @@ void gopher_menu(state *st)
 		}
 
 		/* Skip special files (sockets, fifos etc) */
-		if ((dir[i].mode & S_IFMT) != S_IFREG) continue;
+		if (!S_ISREG(dir[i].mode)) continue;
 
 		/* Get file type */
 		type = gopher_filetype(st, pathname, st->opt_magic);

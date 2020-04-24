@@ -786,12 +786,14 @@ get_selector:
 	if ((file.st_mode & S_IWOTH) != 0)
 		die(&st, ERR_ACCESS, "File or directory world-writeable");
 
-	/* If stat said it was a dir then it's a menu */
-	if ((file.st_mode & S_IFMT) == S_IFDIR) st.req_filetype = TYPE_MENU;
-
-	/* Not a dir - let's guess the filetype again... */
-	else if ((file.st_mode & S_IFMT) == S_IFREG)
+	if (S_ISDIR(file.st_mode))
+		/* Directories are served served as menu */
+		st.req_filetype = TYPE_MENU;
+	else if (S_ISREG(file.st_mode))
+		/* Regular file - let's guess the filetype again... */
 		st.req_filetype = gopher_filetype(&st, st.req_realpath, st.opt_magic);
+	else
+		die(&st, ERR_ACCESS, "not a regular file or directory");
 
 	/* Menu selectors must end with a slash */
 	if (st.req_filetype == TYPE_MENU && strlast(st.req_selector) != '/')
@@ -800,8 +802,7 @@ get_selector:
 	/* Change directory to wherever the resource was */
 	sstrlcpy(buf, st.req_realpath);
 
-	if ((file.st_mode & S_IFMT) != S_IFDIR) c = dirname(buf);
-	else c = buf;
+	c = S_ISDIR(file.st_mode) ? buf : dirname(buf);
 
 	if (chdir(c) == ERROR) die(&st, ERR_ACCESS, NULL);
 
@@ -826,19 +827,14 @@ get_selector:
 	         st.req_remote_addr);
 
 	/* Check file type & act accordingly */
-	switch (file.st_mode & S_IFMT) {
-		case S_IFDIR:
-			log_combined(&st, HTTP_OK);
-			gopher_menu(&st);
-			break;
-
-		case S_IFREG:
-			log_combined(&st, HTTP_OK);
-			gopher_file(&st);
-			break;
-
-		default:
-			die(&st, ERR_ACCESS, "Refusing to serve out special files");
+	if (S_ISDIR(file.st_mode)) {
+		log_combined(&st, HTTP_OK);
+		gopher_menu(&st);
+	} else if (S_ISREG(file.st_mode)) {
+		log_combined(&st, HTTP_OK);
+		gopher_file(&st);
+	} else {
+		die(&st, ERR_ACCESS, "Refusing to serve out special files");
 	}
 
 	/* Clean exit */

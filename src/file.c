@@ -42,7 +42,7 @@ void send_binary_file(state *st)
 
 	log_debug("send binary file \"%s\"", st->req_realpath);
 
-	if ((fd = open(st->req_realpath, O_RDONLY)) == ERROR) return;
+	if ((fd = open(st->req_basename, O_RDONLY)) == ERROR) return;
 	sendfile(1, fd, &offset, st->req_filesize);
 	close(fd);
 
@@ -54,7 +54,7 @@ void send_binary_file(state *st)
 
 	log_debug("send binary file \"%s\"", st->req_realpath);
 
-	if ((fp = fopen(st->req_realpath , "r")) == NULL) return;
+	if ((fp = fopen(st->req_basename , "r")) == NULL) return;
 	while ((bytes = fread(buf, 1, sizeof(buf), fp)) > 0)
 		fwrite(buf, bytes, 1, stdout);
 	fclose(fp);
@@ -74,7 +74,7 @@ void send_text_file(state *st)
 
 	log_debug("sending text file \"%s\"", st->req_realpath);
 
-	if ((fp = fopen(st->req_realpath , "r")) == NULL) return;
+	if ((fp = fopen(st->req_basename , "r")) == NULL) return;
 
 	/* Loop through the file line by line */
 	line = 0;
@@ -387,26 +387,28 @@ void gopher_file(state *st)
 	char buf[BUFSIZE];
 	char *c;
 
-	/* Refuse to serve out gophermaps/tags */
-	if ((c = strrchr(st->req_realpath, '/'))) c++;
-	else c = st->req_realpath;
+	if (st->req_basename[0] != '/')
+		die(st, ERR_ACCESS, "req_selector must start with '/'");
 
-	if (strcmp(c, st->map_file) == MATCH)
+	/* Refuse to serve out gophermaps/tags */
+	if (strcmp(st->req_basename, st->map_file) == MATCH)
 		die(st, ERR_ACCESS, "Refusing to serve out a gophermap file");
-	if (strcmp(c, st->tag_file) == MATCH)
+	if (strcmp(st->req_basename, st->tag_file) == MATCH)
 		die(st, ERR_ACCESS, "Refusing to serve out a gophertag file");
 
 	/* Check for & run CGI and query scripts */
-	if (strstr(st->req_realpath, st->cgi_file) || st->req_filetype == TYPE_QUERY)
-		run_cgi(st, st->req_realpath, NULL);
+	if (strstr(st->req_realpath, st->cgi_file) || st->req_filetype == TYPE_QUERY) {
+		snprintf(buf, sizeof(buf), "./%s", st->req_basename);
+		run_cgi(st, buf, NULL);
+	}
 
 	/* Check for a file suffix filter */
-	if (*st->filter_dir && (c = strrchr(st->req_realpath, '.'))) {
+	if (*st->filter_dir && (c = strrchr(st->req_basename, '.'))) {
 		snprintf(buf, sizeof(buf), "%s/%s", st->filter_dir, c + 1);
 
 		/* Filter file through the script */
 		if (stat(buf, &file) == OK && (file.st_mode & S_IXOTH))
-			run_cgi(st, buf, st->req_realpath);
+			run_cgi(st, buf, st->req_basename);
 	}
 
 	/* Check for a filetype filter */
@@ -415,7 +417,7 @@ void gopher_file(state *st)
 
 		/* Filter file through the script */
 		if (stat(buf, &file) == OK && (file.st_mode & S_IXOTH))
-			run_cgi(st, buf, st->req_realpath);
+			run_cgi(st, buf, st->req_basename);
 	}
 
 	/* Output regular files */

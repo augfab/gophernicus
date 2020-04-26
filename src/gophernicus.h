@@ -301,6 +301,7 @@ typedef struct {
 	/* Request */
 	char req_selector[BUFSIZE];
 	char req_realpath[BUFSIZE];
+	char req_basename[BUFSIZE];
 	char req_query_string[BUFSIZE];
 	char req_search[BUFSIZE];
 	char req_referrer[BUFSIZE];

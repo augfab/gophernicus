@@ -206,6 +206,9 @@ static void selector_to_path(state *st)
 	char buf[BUFSIZE];
 	int i;
 
+	if (st->req_selector[0] != '/')
+		die(st, ERR_ACCESS, "req_selector must start with '/'");
+
 	/* Handle selector rewriting */
 	for (i = 0; i < st->rewrite_count; i++) {
 
@@ -265,8 +268,8 @@ static void selector_to_path(state *st)
 	if (st->opt_vhost) {
 
 		/* Try looking for the selector from the current vhost */
-		snprintf(st->req_realpath, sizeof(st->req_realpath), "%s/%s%s",
-			st->server_root, st->server_host, st->req_selector);
+		snprintf(st->req_realpath, sizeof(st->req_realpath), "./%s%s",
+		         st->server_host, st->req_selector);
 		if (stat(st->req_realpath, &file) == OK) return;
 
 		/* Loop through all vhosts looking for the selector */
@@ -280,8 +283,8 @@ static void selector_to_path(state *st)
 			if (sstrncmp(dir->d_name, "lost+found") == MATCH) continue;
 
 			/* Generate path to the found vhost */
-			snprintf(st->req_realpath, sizeof(st->req_realpath), "%s/%s%s",
-				st->server_root, dir->d_name, st->req_selector);
+			snprintf(st->req_realpath, sizeof(st->req_realpath), "./%s%s",
+			         dir->d_name, st->req_selector);
 
 			/* Did we find the selector under this vhost? */
 			if (stat(st->req_realpath, &file) == OK) {
@@ -296,7 +299,7 @@ static void selector_to_path(state *st)
 
 	/* Handle normal selectors */
 	snprintf(st->req_realpath, sizeof(st->req_realpath),
-		"%s%s", st->server_root, st->req_selector);
+	         ".%s", st->req_selector);
 }
 
 
@@ -470,7 +473,6 @@ int main(int argc, char *argv[])
 	state st;
 	char self[64];
 	char selector[BUFSIZE];
-	char buf[BUFSIZE];
 	char *dest;
 	char *c;
 #ifdef HAVE_SHMEM
@@ -754,6 +756,9 @@ get_selector:
 	/* Remove possible extra cruft from server_host */
 	if ((c = strchr(st.server_host, '\t'))) *c = '\0';
 
+	if (chdir(st.server_root) == ERROR)
+		die(&st, ERR_ACCESS, "can't chdir(2) to server document root");
+
 	/* Guess request filetype so we can die() with style... */
 	st.req_filetype = gopher_filetype(&st, st.req_selector, FALSE);
 
@@ -799,10 +804,19 @@ get_selector:
 	if (st.req_filetype == TYPE_MENU && strlast(st.req_selector) != '/')
 		sstrlcat(st.req_selector, "/");
 
-	/* Change directory to wherever the resource was */
-	sstrlcpy(buf, st.req_realpath);
+	/* Change directory to where the resource is */
+	if (S_ISDIR(file.st_mode)) {
+		sstrlcpy(st.req_basename, ".");
+		c = st.req_realpath;
+	} else {
+		char buf[BUFSIZE] = { 0 };
 
-	c = S_ISDIR(file.st_mode) ? buf : dirname(buf);
+		sstrlcpy(buf, st.req_realpath);
+		sstrlcpy(st.req_basename, basename(buf));
+
+		sstrlcpy(buf, st.req_realpath);
+		c = dirname(buf);
+	}
 
 	if (chdir(c) == ERROR) die(&st, ERR_ACCESS, NULL);
 

@@ -486,7 +486,6 @@ void gopher_menu(state *st)
 	struct tm *ltime;
 	struct stat file;
 	char buf[BUFSIZE];
-	char pathname[BUFSIZE];
 	char displayname[BUFSIZE];
 	char encodedname[BUFSIZE];
 	char timestr[20];
@@ -500,13 +499,12 @@ void gopher_menu(state *st)
 	int n;
 
 	/* Check for a gophermap */
-	snprintf(pathname, sizeof(pathname), "%s/%s",
-		st->req_realpath, st->map_file);
-
-	if (stat(pathname, &file) == OK && S_ISREG(file.st_mode)) {
+	if (stat(st->map_file, &file) == OK && S_ISREG(file.st_mode)) {
 
 		/* Parse gophermap */
-		if (gophermap(st, pathname, 0) == QUIT) {
+		snprintf(buf, sizeof(buf), "./%s", st->map_file);
+
+		if (gophermap(st, buf, 0) == QUIT) {
 			footer(st);
 			return;
 		}
@@ -514,13 +512,11 @@ void gopher_menu(state *st)
 
 	else {
 		/* Check for a gophertag */
-		snprintf(pathname, sizeof(pathname), "%s/%s",
-			st->req_realpath, st->tag_file);
 
-		if (stat(pathname, &file) == OK && S_ISREG(file.st_mode)) {
+		if (stat(st->tag_file, &file) == OK && S_ISREG(file.st_mode)) {
 
 			/* Read & output gophertag */
-			if ((fp = fopen(pathname , "r"))) {
+			if ((fp = fopen(st->tag_file , "r"))) {
 
 				if (fgets(buf, sizeof(buf), fp) == NULL) strclear(buf);
 				chomp(buf);
@@ -553,7 +549,7 @@ void gopher_menu(state *st)
 	}
 
 	/* Scan the directory */
-	num = sortdir(st->req_realpath, dir, MAX_SDIRENT);
+	num = sortdir(st->req_basename, dir, MAX_SDIRENT);
 	if (num < 0) die(st, ERR_NOTFOUND, "WTF?");
 
 	/* Create link to parent directory */
@@ -580,33 +576,32 @@ void gopher_menu(state *st)
 	/* Loop through the directory entries */
 	for (i = 0; i < num; i++) {
 
-		/* Get full path+name */
-		snprintf(pathname, sizeof(pathname), "%s/%s",
-			st->req_realpath, dir[i].name);
+		char *pathname = dir[i].name;
+		const mode_t mode = dir[i].mode;
 
 		/* Skip dotfiles and non world-readables */
-		if (dir[i].name[0] == '.') continue;
-		if ((dir[i].mode & S_IROTH) == 0) continue;
+		if (pathname[0] == '.') continue;
+		if ((mode & S_IROTH) == 0) continue;
 
 		/* Skip gophermaps and tags (but not dirs) */
-		if (!S_ISDIR(dir[i].mode)) {
-			if (strcmp(dir[i].name, st->map_file) == MATCH) continue;
-			if (strcmp(dir[i].name, st->tag_file) == MATCH) continue;
+		if (!S_ISDIR(mode)) {
+			if (strcmp(pathname, st->map_file) == MATCH) continue;
+			if (strcmp(pathname, st->tag_file) == MATCH) continue;
 		}
 
 		/* Skip files marked for hiding */
 		for (n = 0; n < st->hidden_count; n++)
-			if (strcmp(dir[i].name, st->hidden[n]) == MATCH) break;
+			if (strcmp(pathname, st->hidden[n]) == MATCH) break;
 		if (n < st->hidden_count) continue;	/* Cruel hack... */
 
 		/* Generate display name with correct output charset */
 		if (st->opt_iconv)
-			sstrniconv(st->out_charset, displayname, dir[i].name);
+			sstrniconv(st->out_charset, displayname, pathname);
 		else
-			sstrlcpy(displayname, dir[i].name);
+			sstrlcpy(displayname, pathname);
 
 		/* #OCT-encode filename */
-		strnencode(encodedname, dir[i].name, sizeof(encodedname));
+		strnencode(encodedname, pathname, sizeof(encodedname));
 
 		/* Handle inline .gophermap */
 		if (strstr(displayname, st->map_file) > displayname) {
@@ -615,7 +610,7 @@ void gopher_menu(state *st)
 		}
 
 		/* Handle directories */
-		if (S_ISDIR(dir[i].mode)) {
+		if (S_ISDIR(mode)) {
 
 			/* Check for a gophertag */
 			snprintf(buf, sizeof(buf), "%s/%s",
@@ -672,10 +667,10 @@ void gopher_menu(state *st)
 			}
 
 			continue;
+		} else if (!S_ISREG(mode)) {
+			/* Skip special files (sockets, fifos etc) */
+			continue;
 		}
-
-		/* Skip special files (sockets, fifos etc) */
-		if (!S_ISREG(dir[i].mode)) continue;
 
 		/* Get file type */
 		type = gopher_filetype(st, pathname, st->opt_magic);

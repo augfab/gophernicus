@@ -396,18 +396,12 @@ static void init_state(state *st)
 	char *c;
 	int i;
 
-	/* Request */
-	strclear(st->req_selector);
-	strclear(st->req_realpath);
-	strclear(st->req_query_string);
-	strclear(st->req_search);
-	strclear(st->req_referrer);
+	memset(st, 0, sizeof(*st));
+
 	sstrlcpy(st->req_local_addr, get_local_address());
 	sstrlcpy(st->req_remote_addr, get_peer_address());
-	/* strclear(st->req_remote_host); */
 	st->req_filetype = DEFAULT_TYPE;
 	st->req_protocol = PROTO_GOPHER;
-	st->req_filesize = 0;
 
 	/* Output */
 	st->out_width = DEFAULT_WIDTH;
@@ -430,22 +424,6 @@ static void init_state(state *st)
 	sstrlcpy(st->tag_file, DEFAULT_TAG);
 	sstrlcpy(st->cgi_file, DEFAULT_CGI);
 	sstrlcpy(st->user_dir, DEFAULT_USERDIR);
-	strclear(st->log_file);
-
-	st->hidden_count = 0;
-	st->filetype_count = 0;
-	strclear(st->filter_dir);
-	st->rewrite_count = 0;
-
-	strclear(st->server_description);
-	strclear(st->server_location);
-	strclear(st->server_platform);
-	strclear(st->server_admin);
-
-#ifdef __OpenBSD__
-	st->extra_unveil_paths = NULL;
-#endif
-
 
 	/* Session */
 	st->session_timeout = DEFAULT_SESSION_TIMEOUT;

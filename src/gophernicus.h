@@ -263,15 +263,15 @@ size_t strlcat(char *dst, const char *src, size_t siz);
 #define VHOST_FORMAT    "gopher://%s/"
 
 /* ISO-8859-1 to US-ASCII look-alike conversion table */
-#define ASCII \
-    "E?,f..++^%S<??Z?" \
-    "?''\"\"*--~?s>??zY" \
-    " !c_*Y|$\"C?<?-R-" \
-    "??23'u?*,1?>????" \
-    "AAAAAAACEEEEIIII" \
-    "DNOOOOO*OUUUUYTB" \
-    "aaaaaaaceeeeiiii" \
-    "dnooooo/ouuuuyty"
+#define ASCII					\
+	"E?,f..++^%S<??Z?"			\
+	"?''\"\"*--~?s>??zY"			\
+	" !c_*Y|$\"C?<?-R-"			\
+	"??23'u?*,1?>????"			\
+	"AAAAAAACEEEEIIII"			\
+	"DNOOOOO*OUUUUYTB"			\
+	"aaaaaaaceeeeiiii"			\
+	"dnooooo/ouuuuyty"
 
 #define UNKNOWN '?'
 
@@ -286,92 +286,91 @@ size_t strlcat(char *dst, const char *src, size_t siz);
 
 /* Struct for file suffix -> gopher filetype mapping */
 typedef struct {
-    char suffix[15];
-    char type;
+	char suffix[15];
+	char type;
 } ftype;
 
 /* Struct for selector rewriting */
 typedef struct {
-    char match[BUFSIZE];
-    char replace[BUFSIZE];
+	char match[BUFSIZE];
+	char replace[BUFSIZE];
 } srewrite;
 
 /* Struct for keeping the current options & state */
 typedef struct {
+	/* Request */
+	char req_selector[BUFSIZE];
+	char req_realpath[BUFSIZE];
+	char req_query_string[BUFSIZE];
+	char req_search[BUFSIZE];
+	char req_referrer[BUFSIZE];
+	char req_local_addr[64];
+	char req_remote_addr[64];
+	char req_filetype;
+	char req_protocol;
+	off_t req_filesize;
 
-    /* Request */
-    char req_selector[BUFSIZE];
-    char req_realpath[BUFSIZE];
-    char req_query_string[BUFSIZE];
-    char req_search[BUFSIZE];
-    char req_referrer[BUFSIZE];
-    char req_local_addr[64];
-    char req_remote_addr[64];
-    char req_filetype;
-    char req_protocol;
-    off_t req_filesize;
+	/* Output */
+	int out_width;
+	int out_charset;
 
-    /* Output */
-    int out_width;
-    int out_charset;
+	/* Settings */
+	char server_description[64];
+	char server_location[64];
+	char server_platform[64];
+	char server_admin[64];
+	char server_root[256];
+	char server_host_default[64];
+	char server_host[64];
+	int  server_port;
+	int  server_tls_port;
 
-    /* Settings */
-    char server_description[64];
-    char server_location[64];
-    char server_platform[64];
-    char server_admin[64];
-    char server_root[256];
-    char server_host_default[64];
-    char server_host[64];
-    int  server_port;
-    int  server_tls_port;
+	char default_filetype;
+	char map_file[64];
+	char tag_file[64];
+	char cgi_file[64];
+	char user_dir[64];
+	char log_file[256];
 
-    char default_filetype;
-    char map_file[64];
-    char tag_file[64];
-    char cgi_file[64];
-    char user_dir[64];
-    char log_file[256];
+	char hidden[MAX_HIDDEN][256];
+	int hidden_count;
 
-    char hidden[MAX_HIDDEN][256];
-    int hidden_count;
+	ftype filetype[MAX_FILETYPES];
+	int filetype_count;
+	char filter_dir[64];
 
-    ftype filetype[MAX_FILETYPES];
-    int filetype_count;
-    char filter_dir[64];
-
-    srewrite rewrite[MAX_REWRITE];
-    int rewrite_count;
+	srewrite rewrite[MAX_REWRITE];
+	int rewrite_count;
 
 #ifdef __OpenBSD__
 	char *extra_unveil_paths;
 #endif
 
-    /* Session */
-    int session_timeout;
-    int session_max_kbytes;
-    int session_max_hits;
-    int session_id;
+	/* Session */
+	int session_timeout;
+	int session_max_kbytes;
+	int session_max_hits;
+	int session_id;
 
-    /* Feature options */
-    char opt_parent;
-    char opt_header;
-    char opt_footer;
-    char opt_date;
-    char opt_syslog;
-    char opt_magic;
-    char opt_iconv;
-    char opt_vhost;
-    char opt_query;
-    char opt_caps;
-    char opt_status;
-    char opt_shm;
-    char opt_root;
-    char opt_proxy;
-    char opt_exec;
-    char opt_personal_spaces;
-    char opt_http_requests;
-    char debug;
+	/* Feature options */
+	char opt_parent;
+	char opt_header;
+	char opt_footer;
+	char opt_date;
+	char opt_syslog;
+	char opt_magic;
+	char opt_iconv;
+	char opt_vhost;
+	char opt_query;
+	char opt_caps;
+	char opt_status;
+	char opt_shm;
+	char opt_root;
+	char opt_proxy;
+	char opt_exec;
+	char opt_personal_spaces;
+	char opt_http_requests;
+	char debug;
 } state;
 
 /* Shared memory for session & accounting data */
@@ -382,38 +381,38 @@ typedef struct {
 #define SHM_SESSIONS    256        /* Max amount of user sessions to track */
 
 typedef struct {
-    long hits;
-    long kbytes;
+	long hits;
+	long kbytes;
 
-    time_t req_atime;
-    char req_selector[128];
-    char req_remote_addr[64];
-    char req_filetype;
-    int session_id;
+	time_t req_atime;
+	char req_selector[128];
+	char req_remote_addr[64];
+	char req_filetype;
+	int session_id;
 
-    char server_host[64];
-    int  server_port;
+	char server_host[64];
+	int  server_port;
 } shm_session;
 
 typedef struct {
-    time_t start_time;
-    long hits;
-    long kbytes;
-    char server_platform[64];
-    char server_description[64];
-    shm_session session[SHM_SESSIONS];
+	time_t start_time;
+	long hits;
+	long kbytes;
+	char server_platform[64];
+	char server_description[64];
+	shm_session session[SHM_SESSIONS];
 } shm_state;
 
 #endif
 
 /* Struct for directory sorting */
 typedef struct {
-    char    name[128];    /* Should be 256 but we're saving stack space */
-    mode_t    mode;
-    uid_t    uid;
-    gid_t    gid;
-    off_t    size;
-    time_t    mtime;
+	char name[128];    /* Should be 256 but we're saving stack space */
+	mode_t mode;
+	uid_t uid;
+	gid_t gid;
+	off_t size;
+	time_t mtime;
 } sdirent;
 
 /* Struct for the userlist with date */

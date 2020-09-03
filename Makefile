@@ -1,3 +1,5 @@
+.POSIX:
+
 NAME     = gophernicus
 PACKAGE  = $(NAME)
 BINARY   = $(NAME)
@@ -36,9 +38,8 @@ HAS_STD = /run/systemd/system
 SYSCONF = /etc/sysconfig
 DEFAULT = /etc/default
 
-CC      ?= cc
-CFLAGS  := -O2 -Wall $(CFLAGS)
-LDFLAGS := $(LDFLAGS)
+CC      = cc
+CFLAGS  = -O2 -Wall -Wextra
 
 IPCRM   = /usr/bin/ipcrm
 

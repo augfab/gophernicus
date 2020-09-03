@@ -51,7 +51,10 @@ all:
 	esac
 
 withwrap:
-	$(MAKE) CFLAGS="$(CFLAGS) -DHAVE_LIBWRAP" LDFLAGS="$(LDFLAGS) -lwrap" src/$(BINARY)
+	@case $$(uname) in \
+		SunOS) $(MAKE) CFLAGS="$(CFLAGS) -DHAVE_LIBWRAP" LDFLAGS="$(LDFLAGS) -lwrap -lsocket" src/$(BINARY); ;; \
+		*)     $(MAKE) CFLAGS="$(CFLAGS) -DHAVE_LIBWRAP" LDFLAGS="$(LDFLAGS) -lwrap" src/$(BINARY); ;; \
+	esac
 
 deb:
 	dpkg-buildpackage -rfakeroot -uc -us
@@ -99,14 +102,20 @@ clean-shm:
 
 install: clean-shm
 	@case $$(uname) in \
-		Darwin)  $(MAKE) ROOT="$(OSXROOT)" DESTDIR="$(OSXDIR)" install-files install-docs install-root install-osx install-done; ;; \
+		Darwin)  $(MAKE) ROOT="$(OSXROOT)" DESTDIR="$(OSXDIR)" install-files install-docs install-root install-osx ;; \
 		Haiku)   $(MAKE) SBINDIR=/boot/common/bin DOCDIR=/boot/common/share/doc/$(PACKAGE) \
-		                 install-files install-docs install-root install-haiku install-done; ;; \
-		*)       $(MAKE) install-files install-docs install-root; ;; \
+		                 install-files install-docs install-root install-haiku ;; \
+		SunOS) \
+			$(MAKE) install-files install-docs install-root install-smf ;; \
+		*) \
+			$(MAKE) install-files install-docs install-root; \
+			if [ -d "$(HAS_STD)" ]; then  $(MAKE) install-systemd; \
+			elif [ -d "$(XINETD)" ]; then $(MAKE) install-xinetd; \
+			elif [ -f "$(INETD)"  ]; then $(MAKE) install-inetd; \
+			fi ;; \
 	esac
-	@if [ -d "$(HAS_STD)" ]; then $(MAKE) install-systemd install-done; \
-	elif [ -d "$(XINETD)" ]; then $(MAKE) install-xinetd install-done; \
-	elif [ -f "$(INETD)"  ]; then $(MAKE) install-inetd install-done; fi
+
+	@$(MAKE) install-done
 
 .PHONY: install
 
@@ -125,6 +134,7 @@ install-done:
 		/boot/common/settings/network/services \
 		/lib/systemd/system/gophernicus\@.service \
 		/etc/xinetd.d/gophernicus \
+		/lib/svc/manifest/network/gopher-tcp.xml \
 		/etc/inetd.conf; do \
 			if [ -f $$CONFFILE ]; then echo "Configuration: $$CONFFILE"; break; fi; done;
 	@echo
@@ -218,8 +228,19 @@ install-systemd: install-files install-docs install-root
 	fi
 	@echo
 
+install-smf: install-files install-docs install-root
+	if inetadm | grep -q svc:/network/gopher/tcp; then \
+		inetadm -d svc:/network/gopher/tcp; \
+	fi
+	_TMPFILE=$$(mktemp); \
+		echo $(INETLIN) > "$$_TMPFILE"; \
+		inetconv -f -n -i "$$_TMPFILE"; \
+		$(RM) -- "$$_TMPFILE"
+	svccfg import /lib/svc/manifest/network/gopher-tcp.xml
+	inetadm -e svc:/network/gopher/tcp
+
 # Uninstall cases
-uninstall: uninstall-xinetd uninstall-launchd uninstall-systemd uninstall-inetd
+uninstall: uninstall-xinetd uninstall-launchd uninstall-systemd uninstall-inetd uninstall-smf
 	rm -f $(SBINDIR)/$(BINARY)
 	for DOC in $(DOCS); do rm -f $(DOCDIR)/$$DOC; done
 	rmdir -p $(SBINDIR) $(DOCDIR) 2>/dev/null || true
@@ -227,7 +248,9 @@ uninstall: uninstall-xinetd uninstall-launchd uninstall-systemd uninstall-inetd
 	@echo
 
 uninstall-inetd:
-	@if [ -f "$(INETD)" ] && update-inetd --remove "^gopher.*gophernicus" ; then \
+	@if [ "$$(uname)" = SunOS ]; then \
+		:; \
+	elif [ -f "$(INETD)" ] && update-inetd --remove "^gopher.*gophernicus"; then \
 		echo update-inetd remove worked ; \
 	else if grep '^gopher' $(INETD) >/dev/null 2>&1 && \
 		sed -i .bak -e 's/^gopher/#gopher/' $(INETD) ; then \
@@ -268,3 +291,9 @@ uninstall-systemd:
 		done; \
 	fi
 	@echo
+
+uninstall-smf:
+	if inetadm | grep -q svc:/network/gopher/tcp; then \
+		inetadm -d svc:/network/gopher/tcp; \
+		svccfg delete svc:/network/gopher/tcp; \
+	fi
